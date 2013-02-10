@@ -2,18 +2,64 @@
 
 import socket
 import requests
+import logging, traceback
 from gevent import pywsgi
+
+logger = logging.getLogger(__name__)
 
 class Events(object):
     AVTRANSPORT_ENDPOINT = 'http://{0}:1400/MediaRenderer/AVTransport/Event'
 
+    __VALID_EVENT_TYPES = frozenset([
+        'ALL',
+        'TRACK_CHANGED'
+        ])
+
     def __init__(self, speaker_ip):
-        self.listeners = set()
+        self.__listeners = {}
         self.server = None
         self.speaker_ip = speaker_ip
 
-    def subscribe(self, callback):
-        self.listeners.add(callback)
+    def subscribe(self, callback, event_type = 'all'):
+        if not isinstance(event_type, str):
+            raise TypeError('Event type must be one of the following strings: '\
+                            '%s' % ', '.join(__VALID_EVENT_TYPES))
+
+        if event_type.upper() not in __VALID_EVENT_TYPES:
+            raise AttributeError(   'Invalid event type: "%s". '\
+                                    'Event type must be one of the following: '\
+                                    '%s' % (subscription, ', '.join(__VALID_EVENT_TYPES)))
+
+        if event_type not in self.__listeners:
+            self.__listeners[event_type] = set()
+
+        # TODO: if server not started start it now
+        
+        self.__listeners[event_type].add(callback)
+
+    def unsubscribe(self, callback, event_type = 'all'):
+        if not isinstance(event_type, str):
+            raise TypeError('Event type must be one of the following strings: '\
+                            '%s' % ', '.join(__VALID_EVENT_TYPES))
+
+        if event_type.upper() not in __VALID_EVENT_TYPES:
+            raise AttributeError(   'Invalid event type: "%s". '\
+                                    'Event type must be one of the following: '\
+                                    '%s' % (subscription, ', '.join(__VALID_EVENT_TYPES)))
+
+        if event_type not in self.__listeners:
+            logger.info('Event type "%s" has no callbacks, returning...' % event_type)
+            return
+
+    
+        self.__listeners[event_type].remove(callback)
+
+        if len(self.__listeners[event_type]) == 0:
+            del self.__listeners[event_type]
+
+        if not self.__listeners:
+            # TODO: no callbacks are listening, stop server...
+            pass
 
     def start(self, host='', port=8080):
         self.server = pywsgi.WSGIServer((host, port), self.__event_server)
@@ -35,6 +81,10 @@ class Events(object):
         r.raise_for_status()
 
     def stop(self):
+        if self.server is None:
+            logger.warning('Server not initiated, returning...')
+            return
+        
         # TODO: Investigate if there is an `UNSUBSCRIBE` verb.
         self.server.stop()
 
@@ -52,11 +102,22 @@ class Events(object):
         if environ['REQUEST_METHOD'].lower() == 'notify':
             body = environ['wsgi.input'].readline()
 
-            for callback in self.listeners:
-                # TODO: Parse the raw XML into something sensible.
-                # Right now, subscribed listeners will just get the raw XML
-                # sent from the Sonos device.
-                callback(body)
+            eventType = None
+            # TODO: Parse the raw XML into something sensible and determine
+            # a event type.
+
+            # Right now, subscribed listeners will just get the raw XML
+            # sent from the Sonos device.
+
+            # Check if a callback has been subscribed
+            # for this specific type of event.
+            if eventType in self.__listeners:
+                for callback in self.__listeners[eventType]:
+                    callback(body)
+
+            if 'ALL' in self.__listeners:    
+                for callback in self.__listeners['ALL']:
+                    callback(body)
 
             status = '200 OK'
             headers = []
