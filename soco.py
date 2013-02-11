@@ -84,6 +84,7 @@ class SoCo(Events):
     """
 
     def __init__(self, speaker_ip):
+        Events.__init__(self, speaker_ip)
         self.speaker_ip = speaker_ip
         self.speaker_info = {} # Stores information about the current speaker
         self.speakers_ip = [] # Stores the IP addresses of all the speakers in a network
