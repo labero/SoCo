@@ -49,7 +49,7 @@ class SonosDiscovery(object):
                 break
         return speakers
 
-class SoCo(object):
+class SoCo(Events):
     """A simple class for controlling a Sonos speaker.
 
     Public functions:
@@ -83,11 +83,27 @@ class SoCo(object):
 
     """
 
-    speakers_ip = [] # Stores the IP addresses of all the speakers in a network
-
     def __init__(self, speaker_ip):
         self.speaker_ip = speaker_ip
         self.speaker_info = {} # Stores information about the current speaker
+        self.speakers_ip = [] # Stores the IP addresses of all the speakers in a network
+
+    def __del__(self):
+        self.destroy()
+
+    def destroy(self):
+        ''' Method for cleaning up member variables
+        '''
+        logger.debug('Cleaning up variables')
+        if self.speaker_info:
+            self.speaker_info.clear()
+            del self.speaker_info
+            self.speaker_info = None
+
+        if self.speakers_ip:
+            del self.speakers_ip[:]
+            del self.speakers_ip
+            self.speakers_ip = None
 
     def set_play_mode(self, playmode):
         """ Sets the play mode for the queue. Case-insensitive options are:
