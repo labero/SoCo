@@ -15,7 +15,7 @@ import select
 import socket
 import logging, traceback
 
-from events import Events
+import events
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +49,7 @@ class SonosDiscovery(object):
                 break
         return speakers
 
-class SoCo(Events):
+class SoCo(events.Events):
     """A simple class for controlling a Sonos speaker.
 
     Public functions:
@@ -84,12 +84,18 @@ class SoCo(Events):
     """
 
     def __init__(self, speaker_ip):
-        Events.__init__(self, speaker_ip)
+        events.Events.__init__(self, speaker_ip)
         self.speaker_ip = speaker_ip
         self.speaker_info = {} # Stores information about the current speaker
         self.speakers_ip = [] # Stores the IP addresses of all the speakers in a network
 
     def __del__(self):
+        try:
+            events.Events.__del__(self)
+        except:
+            logger.error('Could not call __del__ method')
+            logger.error(traceback.format_exc())
+            
         self.destroy()
 
     def destroy(self):
